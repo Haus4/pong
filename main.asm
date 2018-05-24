@@ -40,10 +40,12 @@ ret
 
 draw_our_shit:
 	call paint_ball
+	call clear_screen
 
 	mov r1, balken_1
 	mov r0, #0h
 	call paint_balken
+	call clear_screen
 
 	mov r1, balken_2
 	mov r0, #7h
@@ -104,9 +106,17 @@ move_ball_x:
 	jmp ball_ende_x
 
 	ball_richtung_x:
-	dec ball_x
+	djnz ball_x, continue_check_dec
+	jmp init
+	continue_check_dec:
 	mov a, ball_x
 	cjne a, #1h, ball_ende_x
+	mov a, ball_y
+	;mov r2, balken_1
+	;cjne a, r2, switch_dir
+	cjne a, balken_1, switch_dir
+	cjne a, balken_1, switch_dir
+	switch_dir:
 	mov ball_rx, #0h
 	ball_ende_x:
 	ret
@@ -130,8 +140,22 @@ move_balken:
 	jmp setfive
 	
 	endshit:
-	mov balken_1, a
 	mov balken_2, a
+	mov a, p2
+	anl a, #1h
+	cjne a, #1h, inccheck
+	mov a, balken_1
+	cjne a, #0h, decbalken
+	ret
+	decbalken:
+	dec balken_1
+	ret
+	inccheck:
+	mov a, balken_1
+	cjne a, #5h, incbalken
+	ret
+	incbalken:
+	inc balken_1
 	ret
 
 do_logic:
