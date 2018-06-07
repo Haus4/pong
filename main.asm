@@ -1,10 +1,11 @@
 ball_x EQU 30h
 ball_y EQU 31h
+; directions: rx(0=right/1=left) ry(0=down/1=up)
 ball_rx EQU 35h
 ball_ry EQU 36h
 
-balken_1 EQU 33h
-balken_2 EQU 34h
+balken_player EQU 33h
+balken_enemy EQU 34h
 
 ende EQU 37h
 
@@ -20,12 +21,16 @@ org 20h
 init:
 call clear_screen
 mov ende, #0h
+; initialize ball position to be in the middle
+; of the screen
 mov ball_x, #3h
 mov ball_y, #3h
-mov balken_1, #0h
-mov balken_2, #0h
+; intialize direction of the ball to downwards
+; right
 mov ball_rx, #0h
 mov ball_ry, #0h
+mov balken_player, #0h
+mov balken_enemy, #0h
 call move_balken
 mov ie, #10010010b
 mov tmod, #00000010b
@@ -42,7 +47,7 @@ cjne a, #0h, init
 jmp run
 
 timer:
-call draw_our_shit
+call drawing_routine
 
 mov a, ende
 cjne a, #0h, end_timer
@@ -53,16 +58,16 @@ end_timer:
 clr tr0
 ret
 
-draw_our_shit:
+drawing_routine:
 	call paint_ball
 	call clear_screen
 
-	mov r1, balken_1
+	mov r1, balken_player
 	mov r0, #0h
 	call paint_balken
 	call clear_screen
 
-	mov r1, balken_2
+	mov r1, balken_enemy
 	mov r0, #7h
 	call paint_balken
 	call clear_screen
@@ -71,16 +76,16 @@ draw_our_shit:
 paint_ball:
 	mov r0, ball_x
 	mov r1, ball_y
-	call paint_at
+	call paint_dot
 	ret
 
 paint_balken:
-	mov dptr, #bitshift_cheat
+	mov dptr, #bitshift_table
 	mov a, r0
 	movc a,@a+dptr
 	mov p0, a
 
-	mov dptr, #bitshift_cheat_2
+	mov dptr, #bitshift_table_2
 	mov a, r1
 	movc a,@a+dptr
 	mov p1, a
@@ -94,104 +99,105 @@ move_ball:
 
 move_ball_y:
 	mov a, ball_ry
-	cjne a, #0h, ball_richtung
+	cjne a, #0h, change_ball_richtung
 	
 	inc ball_y
 	mov a, ball_y
-	cjne a, #7h, ball_ende
+	cjne a, #7h, return_move_ball_y
 	mov ball_ry, #1h
-	jmp ball_ende
+	jmp return_move_ball_y
 
-	ball_richtung:
+	change_ball_richtung:
 	dec ball_y
 	mov a, ball_y
-	cjne a, #0h, ball_ende
+	cjne a, #0h, return_move_ball_y
 	mov ball_ry, #0h
-	ball_ende:
+	return_move_ball_y:
 	ret
 
 move_ball_x:
 	mov a, ball_rx
-	cjne a, #0h, ball_richtung_x
+	cjne a, #0h, check_game_end
 	
 	inc ball_x
 	mov a, ball_x
-	cjne a, #6h, ball_ende_x
+	cjne a, #6h, return_move_ball_x
 	mov ball_rx, #1h
-	jmp ball_ende_x
+	jmp return_move_ball_x
 
-	ball_richtung_x:
-	djnz ball_x, continue_check_dec
+	check_game_end:
+	djnz ball_x, continue_check_x_pos
 	mov ende, #1h
-	jmp ball_ende_x
+	jmp return_move_ball_x
 	
-	continue_check_dec:
+	continue_check_x_pos:
 	mov a, ball_x
-	cjne a, #1h, ball_ende_x
+	cjne a, #1h, return_move_ball_x
 	mov a, ball_y
-	mov b, balken_1
+	mov b, balken_player
 
-	cjne a, b, next1
+	cjne a, b, check_direction_change
 	jmp switch_dir
 
-	next1:
+	check_direction_change:
 	inc b
-	cjne a, b, next2
+	cjne a, b, check_direction_change_2
 	jmp switch_dir
 
-	next2:
+	check_direction_change_2:
 	inc b
-	cjne a, b, ball_ende_x
+	cjne a, b, return_move_ball_x
 
 	switch_dir:
 	mov ball_rx, #0h
-	ball_ende_x:
+	return_move_ball_x:
 	ret
 
 move_balken:
 	mov a, ball_y
-	cjne a, #0h, decrement
-	jmp do_copy
+	cjne a, #0h, decrement_y_variable
+	jmp check_balken_range_1
 	
-	decrement:
+	decrement_y_variable:
 	dec a
 	
-	do_copy:
-	cjne a, #6h, next
-	setfive:
+	check_balken_range_1:
+	cjne a, #6h, check_balken_range_2
+	set_y_max:
 	mov a, #5h
-	jmp endshit
+	jmp move_both_balken
 
-	next:
-	cjne a, #7h, endshit
-	jmp setfive
+	check_balken_range_2:
+	cjne a, #7h, move_both_balken
+	jmp set_y_max
 	
-	endshit:
-	mov balken_2, a
+	move_both_balken:
+	mov balken_enemy, a
 	mov a, p2
 	anl a, #1h
-	cjne a, #1h, inccheck
-	mov a, balken_1
-	cjne a, #0h, decbalken
+	cjne a, #1h, inc_check
+	mov a, balken_player
+	cjne a, #0h, dec_balken_player
 	ret
-	decbalken:
-	dec balken_1
+	dec_balken_player:
+	dec balken_player
 	ret
-	inccheck:
-	mov a, balken_1
-	cjne a, #5h, incbalken
+	inc_check:
+	mov a, balken_player
+	cjne a, #5h, inc_balken_player
 	ret
-	incbalken:
-	inc balken_1
+	inc_balken_player:
+	inc balken_player
 	ret
 
+;game logic
 do_logic:
 	call move_ball
 	call move_balken
 	ret
 
-paint_at:
-	mov dptr, #bitshift_cheat
+paint_dot:
+	mov dptr, #bitshift_table
 	mov a, r0
 	movc a,@a+dptr
 	mov p0, a
@@ -199,18 +205,18 @@ paint_at:
 	mov a, r1
 	movc a,@a+dptr
 	mov p1, a
-	
 
 	call clear_screen
 	ret
 
+; reset dot matrix
 clear_screen:
 	mov p0, #0FFh
 	mov p1, #0FFh
 	ret
 
 org 300h
-bitshift_cheat:
+bitshift_table:
 	db 11111110b
 	db 11111101b
 	db 11111011b
@@ -220,7 +226,7 @@ bitshift_cheat:
 	db 10111111b
 	db 01111111b
 
-bitshift_cheat_2:
+bitshift_table_2:
 	db 11111000b
 	db 11110001b
 	db 11100011b
